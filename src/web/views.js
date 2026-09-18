@@ -217,7 +217,8 @@ export function pickCard({ pick, job, members, group, readOnly, backup }) {
   <details class="more"><summary>Ratings and reviews</summary>
     <div style="margin-top:14px">
       ${ratingsTable(pick)}
-      ${pick.reviews.points.length ? html`<h4>What people say</h4><ul class="clean">${pick.reviews.points.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
+      <h4>What people say</h4>
+      ${pick.reviews.points.length ? html`<ul class="clean">${pick.reviews.points.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
       ${pick.reviews.quote ? html`<blockquote class="quote">“${pick.reviews.quote.text}”<cite>${pick.reviews.quote.user}, Letterboxd (${pick.reviews.quote.likes.toLocaleString('en-US')} likes)</cite></blockquote>` : ''}
       <p class="small muted">${pick.reviews.basis}</p>
     </div></details>

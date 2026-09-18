@@ -108,7 +108,7 @@ test('solo flow: preferences in, live log, then a primary pick and two backups w
   withSite(async ({ client, waitDone }) => {
     const c = client();
     const form = await c.get('/solo');
-    for (const label of ['Favorite genres', 'Current mood', 'Movies you loved', 'Movies you disliked', 'Movies you have already watched', 'Longest you will sit through', "Hard no's", 'Import your Letterboxd history']) assert.match(form.text, new RegExp(label), label);
+    for (const label of ['What do you love\\?', 'What kind of night\\?', 'Films you loved', 'Films that missed', 'Already seen', 'How long have you got\\?', "Anything you can't watch\\?", 'Bring your history\\?']) assert.match(form.text, new RegExp(label), label);
     const { runPath } = await soloRun(c, waitDone);
     assert.match(runPath, /^\/run\//);
     const view = await c.get(runPath);
@@ -121,7 +121,7 @@ test('solo flow: preferences in, live log, then a primary pick and two backups w
     assert.match(redirect.location, /^\/results\//);
     const res = await c.get(redirect.location);
     assert.equal(res.status, 200);
-    for (const s of ["Tonight's pick", 'Backup one', 'Backup two', 'Why it was recommended', 'Ratings from multiple sources', 'What people are saying', 'Potential drawbacks', 'Rotten Tomatoes critics', 'Letterboxd', 'How the agent got here']) assert.ok(res.text.includes(s), s);
+    for (const s of ["Tonight's pick", 'Backup one', 'Backup two', '<h4>Why</h4>', 'Ratings and reviews', 'What people say', '<h4>Drawbacks</h4>', 'Rotten Tomatoes critics', 'Letterboxd', 'How the agent got here']) assert.ok(res.text.includes(s), s);
     for (const b of ['Watched', 'Want to watch', 'Thumbs up', 'Thumbs down']) assert.ok(res.text.includes(b), b);
     assert.match(res.text, /Streaming availability is not checked/);
     assert.ok(!/Inception<\/h2>|Interstellar<\/h2>|Dark Knight<\/h2>|Mamma Mia/.test(res.text.split('If that is not it')[0]), 'films the person already saw are not recommended');
@@ -147,7 +147,7 @@ test('follow-up: an unclear title makes the agent ask, and answering resumes the
     const { runPath } = await soloRun(c, waitDone, { ...SOLO, loved: 'Grand Budapest' });
     const ask = await c.get(runPath);
     assert.equal(ask.status, 200);
-    assert.match(ask.text, /The projectionist has a question/);
+    assert.match(ask.text, /One question first/);
     assert.match(ask.text, /Did you mean/);
     assert.match(ask.text, /The Grand Budapest Hotel/);
     assert.match(ask.text, /None of these, skip it/);
@@ -184,7 +184,7 @@ test('feedback loop: a thumbs down removes the pick, explains the change, and la
     assert.ok(!new RegExp(`aria-label="Tonight's pick: ${primaryTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`).test(next.text));
 
     const shelf = await c.get('/shelf');
-    assert.match(shelf.text, /Passed on \(1\)/);
+    assert.match(shelf.text, /Passed on <span class="count">1<\/span>/);
     assert.match(shelf.text, /too long/);
   }));
 
@@ -213,8 +213,8 @@ test('watched, want to watch and thumbs up each change what the agent knows', ()
     assert.equal(entries.find((e) => e.movieId === b).status, 'watchlist');
     assert.equal(store.feedbackFor(user.id).find((f) => f.movieId === d).kind, 'thumbs-up');
     const shelf = await c.get('/shelf');
-    assert.match(shelf.text, /Want to watch \(1\)/);
-    assert.match(shelf.text, /Thumbs up \(1\)/);
+    assert.match(shelf.text, /Want to watch <span class="count">1<\/span>/);
+    assert.match(shelf.text, /Thumbs up <span class="count">1<\/span>/);
     assert.match(shelf.text, /Loved it/);
   }));
 
@@ -432,7 +432,7 @@ test('static assets are served with the right types, and traversal is refused', 
     const css = await c.get('/site.css');
     assert.equal(css.status, 200);
     assert.match(css.headers.get('content-type'), /text\/css/);
-    assert.match(css.text, /--velvet/);
+    assert.match(css.text, /--paper/);
     const font = await c.get('/fonts/limelight-400.woff2');
     assert.equal(font.headers.get('content-type'), 'font/woff2');
     assert.equal((await c.get('/site.js')).status, 200);
