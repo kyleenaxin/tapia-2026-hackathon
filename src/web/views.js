@@ -135,7 +135,7 @@ export function runView({ job, provenance }) {
 <h1 class="center">The projectionist is at work</h1>
 <p class="center">${job.mode === 'judge' ? 'Running the whole walkthrough: a recommendation, a friend adding a movie, and a group disagreement.' : 'Every tool call is logged below. Nothing is hidden.'}</p>
 ${job.banner ? html`<div class="banner">${job.banner}</div>` : ''}
-<div class="log" id="run" data-status="/run/${job.id}/status" data-results="/results/${job.id}" data-seen="${steps.length}" aria-live="polite">
+<div class="log" id="run" data-status="/run/${job.id}/status" data-results="${job.resultsUrl}" data-seen="${steps.length}" aria-live="polite">
   <ol id="steps">${steps.map((s) => html`<li class="${s.status === 'warn' ? 'warn' : ''}"><span class="n">${String(s.n).padStart(2, '0')}</span><span><span class="tool">${s.tool.replaceAll('_', ' ')}</span> — ${s.summary}</span></li>`)}</ol>
   <div class="now" id="now">${job.trace?.current ?? 'Getting started'}</div>
 </div>
@@ -156,7 +156,7 @@ function ratingsTable(pick) {
   const rows = pick.ratings.sources.map((s) => {
     const isPct = s.source === 'rottentomatoes' || s.source === 'rt-audience';
     const shown = isPct ? pct(s.value) : `${s.value.toFixed(1)}/10`;
-    const votes = s.votes != null ? s.votes.toLocaleString('en-US') : s.votesProxy ? 'popular film (est.)' : 'n/a';
+    const votes = s.votes != null ? `${s.votes.toLocaleString('en-US')}${s.votesAtLeast ? '+' : ''}` : s.votesProxy ? 'popular film (est.)' : 'n/a';
     return html`<tr><td>${s.label}</td><td><span class="scorebar"><i style="width:${Math.round(s.value * 10)}%"></i></span>${shown}</td><td>${votes}</td><td>${s.kind === 'critic' ? 'critics' : 'audience'}</td><td class="small">${s.basis === 'dataset snapshot' ? 'dataset snapshot' : s.basis ?? ''}</td></tr>`;
   });
   return html`<table class="ratings"><thead><tr><th>Source</th><th>Score</th><th>Ratings counted</th><th>From</th><th>Freshness</th></tr></thead><tbody>${rows}</tbody></table>
@@ -188,7 +188,7 @@ function feedbackForms({ pick, job, members, group }) {
 </div>`;
 }
 
-function pickCard({ pick, job, members, group, readOnly, backup }) {
+export function pickCard({ pick, job, members, group, readOnly, backup }) {
   const m = pick.movie;
   const meta = [m.year, pick.runtime.minutes ? `${pick.runtime.minutes} min` : 'runtime unknown', m.directors?.[0] ? `dir. ${m.directors[0]}` : null].filter(Boolean).join(' · ');
   const body = html`

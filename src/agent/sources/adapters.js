@@ -86,7 +86,7 @@ export function parseRottenTomatoes(html) {
     title,
     year: year ? Number(year) : null,
     critics: critics && critics.score ? { score: num(critics.score), count: num(critics.ratingCount) || null, sentiment: critics.sentiment ?? null, certified: !!critics.certified, liked: critics.likedCount ?? null, notLiked: critics.notLikedCount ?? null } : null,
-    audience: audience && audience.score ? { score: num(audience.score), count: num(audience.bandedRatingCount) || null, sentiment: audience.sentiment ?? null, liked: audience.likedCount ?? null, notLiked: audience.notLikedCount ?? null } : null,
+    audience: audience && audience.score ? { score: num(audience.score), count: num(audience.bandedRatingCount) || null, atLeast: String(audience.bandedRatingCount ?? '').includes('+'), sentiment: audience.sentiment ?? null, liked: audience.likedCount ?? null, notLiked: audience.notLikedCount ?? null } : null,
   };
 }
 
@@ -126,7 +126,7 @@ export async function fetchRottenTomatoes(movie, { fetcher, hints = {} }) {
     if (!p.critics && !p.audience) { noScore = { source: 'rottentomatoes', status: 'no-score', reason: 'page has no Tomatometer or Popcornmeter yet', url }; continue; }
     const ratings = [];
     if (p.critics) ratings.push({ source: 'rottentomatoes', value: p.critics.score / 10, votes: p.critics.count, kind: 'critic', basis: 'live page', detail: p.critics });
-    if (p.audience) ratings.push({ source: 'rt-audience', value: p.audience.score / 10, votes: p.audience.count, kind: 'audience', basis: 'live page', detail: p.audience });
+    if (p.audience) ratings.push({ source: 'rt-audience', value: p.audience.score / 10, votes: p.audience.count, votesAtLeast: p.audience.atLeast, kind: 'audience', basis: 'live page', detail: p.audience });
     return { source: 'rottentomatoes', status: 'ok', url, slug, viaWikidata: trusted, ratings, critics: p.critics, audience: p.audience };
   }
   return noScore ?? { source: 'rottentomatoes', status: 'not-found', reason: `no matching page (${tried.join(', ')})` };

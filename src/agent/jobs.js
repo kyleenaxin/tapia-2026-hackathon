@@ -9,17 +9,19 @@ export function createJobs({ store, catalog, sources, budget = DEFAULT_BUDGET, n
   const jobs = new Map();
   const latest = new Map(); // "solo:userId" or "group:ROOM" -> last finished job id
 
-  const keyOf = (j) => (j.mode === 'group' ? `group:${j.roomCode}` : `solo:${j.userId}`);
+  const keyOf = (j) => (j.mode === 'group' ? `group:${j.roomCode}` : j.mode === 'solo' ? `solo:${j.userId}` : null);
 
   function create({ userId, actorId = userId, mode = 'solo', roomCode = null, questions = [], notes = [], banner = null, previousFrom = null, runner = null }) {
     const job = {
       id: randomBytes(9).toString('base64url'),
       userId, actorId, mode, roomCode, questions, notes, banner, runner,
+      resultsUrl: null,
       status: questions.length ? 'asking' : 'created',
       trace: null, result: null, error: null,
       createdAt: now(),
       previous: previousFrom ? jobs.get(latest.get(previousFrom))?.result ?? null : null,
     };
+    job.resultsUrl = mode === 'judge' ? `/judge?job=${job.id}` : `/results/${job.id}`;
     jobs.set(job.id, job);
     if (jobs.size > 300) jobs.delete(jobs.keys().next().value);
     if (!questions.length) start(job);
@@ -37,7 +39,7 @@ export function createJobs({ store, catalog, sources, budget = DEFAULT_BUDGET, n
     job.promise = run().then((result) => {
       job.result = result;
       job.status = 'done';
-      latest.set(keyOf(job), job.id);
+      if (keyOf(job)) latest.set(keyOf(job), job.id);
     }).catch((e) => {
       job.status = 'error';
       job.error = e instanceof HttpError ? e.message : 'The agent hit an unexpected problem. Try again.';
@@ -62,6 +64,7 @@ export function createJobs({ store, catalog, sources, budget = DEFAULT_BUDGET, n
 export function jobView(job) {
   return {
     id: job.id,
+    resultsUrl: job.resultsUrl,
     status: job.status,
     mode: job.mode,
     current: job.trace?.current ?? null,

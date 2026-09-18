@@ -78,16 +78,18 @@ export function analyzeAddition({ viewerId, actor, movie, entry, before, after, 
     }
   } else if (reject) {
     action = 'skip';
-    const why = { 'avoided-genre': 'it is in a genre you asked to avoid', 'too-long': 'it is longer than your runtime limit', 'too-old': 'it is older than your era preference', 'rejected-by-you': 'you already rejected it', 'hard-no-term': "it matches one of your hard no's", 'content-flag': 'it has content you asked to avoid' }[reject];
+    const why = { 'avoided-genre': 'it is in a genre you asked to avoid', 'too-long': 'it is longer than your runtime limit', 'too-old': 'it is older than your era preference', 'rejected-by-you': 'you already rejected it', 'hard-no-term': "it matches one of your hard no's", 'content-flag': 'it has content you asked to avoid', 'not-a-feature': 'it looks like a featurette or short, not a feature film' }[reject] ?? 'it does not fit your constraints';
     headline = `Skip ${movie.title}: ${actor.name} ${did}, but ${why}.`;
   } else {
     const item = after.scored.find((s) => s.movie.id === movie.id);
-    // "Watch" means it would make your top 10; "maybe" means top 50. Both are capped relative to a small pool.
-    const strong = rawRankAfter <= Math.min(10, Math.ceil(total / 3));
-    const maybe = rawRankAfter <= Math.min(50, Math.ceil((total * 2) / 3));
+    // Cutoffs scale with the catalog: "watch" is roughly the top half percent (at least the top 10), "maybe" the top 5%.
+    // A small pool caps both at a third and two thirds of the candidates.
+    const strong = rawRankAfter <= Math.min(Math.max(10, Math.ceil(total * 0.005)), Math.ceil(total / 3));
+    const maybe = rawRankAfter <= Math.min(Math.max(50, Math.ceil(total * 0.05)), Math.ceil((total * 2) / 3));
     action = strong ? 'watch' : maybe ? 'maybe' : 'skip';
     const verdictWord = { watch: 'Watch it', maybe: 'Maybe', skip: 'Probably skip' }[action];
-    headline = `${verdictWord}: ${actor.name} ${did}, and ${movie.title} ranks #${rawRankAfter} of ${total} for you${rawRankBefore ? ` (was #${rawRankBefore} before)` : ''}.`;
+    const topPct = (rawRankAfter / total) * 100;
+    headline = `${verdictWord}: ${actor.name} ${did}, and ${movie.title} ranks #${rawRankAfter} of ${total.toLocaleString('en-US')} for you (${topPct < 0.1 ? 'top 0.1%' : `top ${topPct < 1 ? topPct.toFixed(1) : Math.round(topPct)}%`})${rawRankBefore ? `${rawRankBefore > rawRankAfter ? ', up from' : ', was'} #${rawRankBefore.toLocaleString('en-US')} before` : ''}.`;
     reasoning = item.reasons.slice(0, 4).map((r) => r.text);
     tradeoffs = item.tradeoffs;
   }
