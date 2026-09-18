@@ -1,0 +1,17 @@
+{
+  "name": "up-next",
+  "version": "0.1.0",
+  "description": "Up Next: an agentic movie advisor with solo and group screening rooms, built on the Letterboxd dataset.",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "demo": "node src/demo/run.js",
+    "build-data": "node scripts/build-data.js"
+  }
+}

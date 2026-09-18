@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Up Next - front-end prototype</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <div class="proto-banner" role="note">Front-end prototype with mock data. Films and reviews come from the Letterboxd sample. Nothing here calls the real agent or the web.</div>
+  <header class="top">
+    <div class="top-inner">
+      <a class="brand" href="#/welcome" aria-label="Up Next, home">UP <b>NEXT</b></a>
+      <ol class="steps" id="steps" aria-label="Progress"></ol>
+    </div>
+  </header>
+  <main id="app" tabindex="-1" aria-live="polite"></main>
+  <footer>
+    Ratings and reviews shown here are from the Letterboxd dataset snapshot and belong to their authors. <a href="#/states">Component states</a>
+  </footer>
+  <div id="overlay"></div>
+  <script src="mock-films.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
