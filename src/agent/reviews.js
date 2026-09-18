@@ -77,8 +77,14 @@ const PROFANITY = /\b(fuck\w*|shit\w*|bitch\w*|cunt\w*|dick\w*|cock\w*|pussy|slu
 export const hasProfanity = (text) => PROFANITY.test(text);
 
 // A review is worth quoting when it says something about the film (a quality or a reaction), not just a joke.
+const LAUGH_MARKERS = /\b(lol|lmao|rofl|haha+|tbh|imo)\b/i;
+const JOKE_WORDS = new Set(['funny', 'hilarious']);
+
 export function isSubstantive(text) {
   const t = String(text).toLowerCase();
-  const themed = Object.values(THEMES).some((words) => has(t, words).length);
-  return themed || has(t, POSITIVE).length > 0 || has(t, NEGATIVE).length > 0;
+  if (LAUGH_MARKERS.test(t)) return false;
+  // Humor words show up in jokes about a film far more than in assessments of it, so they do not count on their own.
+  const themed = Object.entries(THEMES).some(([theme, words]) => theme !== 'humor' && has(t, words).length);
+  const evaluative = has(t, POSITIVE).some((w) => !JOKE_WORDS.has(w)) || has(t, NEGATIVE).length > 0;
+  return themed || evaluative;
 }

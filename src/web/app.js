@@ -93,7 +93,7 @@ export function createWebApp({ catalog, store, sources, jobs, publicDir = path.j
     const user = sessionUser(req, res, { create: false });
     const job = jobFor(params.id, user);
     if (job.status === 'asking') return page(askView({ job, provenance }));
-    if (job.status === 'done') return redirect(job.mode === 'intake' ? `/room/${job.roomCode}?saved=1` : `/results/${job.id}`);
+    if (job.status === 'done') return redirect(job.mode === 'intake' ? `/room/${job.roomCode}?saved=1` : job.resultsUrl);
     if (job.status === 'error') return page(errorView({ message: job.error, provenance }), 500);
     return page(runView({ job, provenance }));
   });
@@ -109,6 +109,7 @@ export function createWebApp({ catalog, store, sources, jobs, publicDir = path.j
   route('GET', '/results/:id', ({ req, res, params }) => {
     const job = jobFor(params.id, sessionUser(req, res, { create: false }));
     if (job.status !== 'done' || !job.result) return redirect(`/run/${job.id}`);
+    if (job.mode === 'judge') return redirect(job.resultsUrl);
     return page(resultsView({ job, provenance, readOnly: job.mode === 'judge' }));
   });
 

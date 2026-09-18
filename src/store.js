@@ -33,8 +33,8 @@ const fresh = () => ({ seq: 1, users: {}, entries: [], feedback: [], follows: []
 
 const newMember = (userId) => ({ userId, mood: null, maxRuntime: null, hardVetoes: [], ready: false, swipes: {}, joinedAt: new Date().toISOString() });
 
-// Consent model: a person's history is visible only to people who follow them AND only while their sharing is "friends".
-// Joining a screening room is a separate, explicit opt-in that lets the group agent weigh that person's taste for that room.
+// Consent model: a person's history is visible only inside a screening room they joined, to the other members of that room.
+// Joining is an explicit opt-in and leaving revokes access. (Older state files may still carry unused follow/sharing fields.)
 export class Store {
   constructor({ file = null } = {}) {
     this.file = file;

@@ -22,7 +22,7 @@ export function resolveParticipants({ hostId, participantIds, store }) {
   return { members, excluded };
 }
 
-// Collaborators mode: pick something a whole group can watch together (in person or online).
+// Group mode: pick something a whole group can watch together (in person or online).
 export function rankForGroup({ hostId, participantIds = [], setting = 'in-person', store, catalog, limit = 8, trace = null }) {
   const { members: users, excluded } = resolveParticipants({ hostId, participantIds, store });
   if (users.length < 2) {
@@ -113,7 +113,7 @@ export function rankForGroup({ hostId, participantIds = [], setting = 'in-person
   });
 
   const notes = [
-    'Collaborators mode uses hard exclusions, overlap, novelty and fairness, not an average of star ratings.',
+    'Group mode balances hard exclusions, overlap, novelty and fairness. It is not an average of star ratings.',
     setting === 'online'
       ? 'Streaming availability is not checked (no availability source configured), so confirm the picks are on a service you all can use.'
       : 'Confirm availability before you commit: no streaming data source is configured.',

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { reconcile } from '../agent/ratings.js';
+import { notAFeature } from '../agent/constraints.js';
 
 const norm = (t) => String(t ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ').trim();
 export const normTitle = norm;
@@ -125,11 +126,13 @@ export function crowdFavorites(catalog, { limit = 12, exclude = new Set(), genre
     .slice(0, limit);
 }
 
-export function findByTitle(catalog, title, year = null) {
+// With strict, a given year must match (within one year) or there is no match, so a remake is never mistaken for the original.
+export function findByTitle(catalog, title, year = null, { strict = false } = {}) {
   const t = norm(title);
   const hits = [];
   catalog.norms.forEach((n, i) => { if (n === t) hits.push(catalog.movies[i]); });
   const byYear = year ? hits.filter((m) => m.year && Math.abs(m.year - year) <= 1) : hits;
+  if (strict && year && !byYear.length) return null;
   return (byYear.length ? byYear : hits).sort((a, b) => b.popularity - a.popularity)[0] ?? null;
 }
 
@@ -146,7 +149,7 @@ export function resolveTitle(catalog, text) {
   const partial = [];
   catalog.norms.forEach((n, i) => {
     if (n === t) exact.push(catalog.movies[i]);
-    else if (n.startsWith(t) || n.includes(` ${t}`) || t.includes(n) && n.length >= 5) partial.push(catalog.movies[i]);
+    else if ((n.startsWith(t) || n.includes(` ${t}`) || (t.includes(n) && n.length >= 5)) && !notAFeature(catalog.movies[i])) partial.push(catalog.movies[i]);
   });
   const byPop = (a, b) => b.popularity - a.popularity;
   if (exact.length) {

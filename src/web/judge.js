@@ -1,105 +1,79 @@
-// The judge walkthrough: three things worth showing, run on a throwaway store so
-// real data is never touched. The scenario returns its own shape rather than a
-// single agent result, so this page renders it directly instead of reusing
-// resultsView.
-import { html, raw } from './html.js';
+import { html } from './html.js';
 import { layout, ticket } from './layout.js';
-import { runView, errorView } from './views.js';
+import { pickCard, runView, errorView } from './views.js';
+import { activityItem } from './roomViews.js';
 import { runJudgeScenario } from '../demo/scenario.js';
 
 export function startJudge({ jobs, catalog, sources }) {
-  return jobs.create({
-    userId: 'judge',
-    mode: 'judge',
-    runner: () => runJudgeScenario({ catalog, sources }),
-  });
+  return jobs.create({ userId: 'judge', mode: 'judge', runner: (job) => runJudgeScenario({ catalog, sources, trace: job.trace }) });
 }
 
-const changeList = (changes) => {
-  if (!changes) return '';
-  const lines = [
-    changes.primaryChanged
-      ? `Main pick changed from ${changes.primaryBefore} to ${changes.primaryAfter}.`
-      : `Main pick stayed ${changes.primaryAfter}.`,
-    changes.added?.length ? `New in the lineup: ${changes.added.join(', ')}.` : '',
-    changes.removed?.length ? `Out of the lineup: ${changes.removed.join(', ')}.` : '',
-  ].filter(Boolean);
-  return html`<ul class="clean">${lines.map((l) => html`<li>${l}</li>`)}</ul>`;
+const picksBlock = (result, group, job) => {
+  const [primary, ...backups] = result.picks;
+  if (!primary) return html`<p class="muted">No picks survived the constraints.</p>`;
+  const members = group ? result.participants : [];
+  return html`${pickCard({ pick: primary, job, members, group, readOnly: true, backup: false })}
+  ${backups.length ? html`<div class="backups">${backups.map((b) => pickCard({ pick: b, job, members, group, readOnly: true, backup: true }))}</div>` : ''}`;
 };
 
-function intro({ provenance }) {
-  return layout({
-    title: 'Judge walkthrough',
-    current: '/judge',
-    provenance,
-    body: html`
-<h1 class="center">Judge walkthrough</h1>
-<p class="center">Three things, end to end, on a throwaway store. Nothing here touches saved data.</p>
-<ol class="clean" style="max-width:56ch;margin:0 auto 26px">
-  <li>A recommendation, with the reasoning behind it.</li>
-  <li>What changed when someone in the room added a film.</li>
-  <li>A pick a person disagreed with, and what the agent did about it.</li>
-</ol>
-<p class="center"><form method="post" action="/judge">${ticket({ tag: 'button', label: 'Run the walkthrough', admit: 'Admit one', sub: 'Takes a few seconds', stub: 'Judge' })}</form></p>`,
-  });
-}
-
-function walkthrough({ job, provenance }) {
-  const r = job.result;
-  const solo = r.solo?.picks?.[0] ?? null;
-
-  return layout({
-    title: 'Judge walkthrough',
-    current: '/judge',
-    provenance,
-    body: html`
-<h1 class="center">Judge walkthrough</h1>
-<p class="center small muted">Run on a throwaway store. ${r.missing?.length ? `Not in this catalog: ${r.missing.join(', ')}.` : ''}</p>
-
-<div class="paper">
-  <span class="ribbon">Part one</span>
-  <h2>A recommendation, with its reasoning</h2>
-  ${solo
-    ? html`<p class="meta">${solo.movie.title}${solo.movie.year ? ` (${solo.movie.year})` : ''} for ${r.people?.alex?.name ?? 'Alex'}</p>
-        <ul class="clean">${(solo.reasons ?? []).map((x) => html`<li>${typeof x === 'string' ? x : x.text}</li>`)}</ul>
-        ${(solo.drawbacks ?? []).length ? html`<h4>Drawbacks</h4><ul class="clean drawbacks">${solo.drawbacks.map((d) => html`<li>${typeof d === 'string' ? d : d.text}</li>`)}</ul>` : ''}`
-    : html`<p>Nothing survived the constraints for this person.</p>`}
-</div>
-
-<div class="paper">
-  <span class="ribbon">Part two</span>
-  <h2>Someone in the room adds a film</h2>
-  ${r.friend
-    ? html`<p class="meta">${r.friend.addedBy} added ${r.friend.movie} and liked it.</p>
-        ${r.friend.analysis ? html`<p>${r.friend.analysis.headline}</p>` : html`<p class="muted">Nobody was watching, so there was nothing to compare.</p>`}
-        <h4>What changed</h4>${changeList(r.friend.changes)}`
-    : html`<p class="muted">No suitable unseen film was available in this catalog to demonstrate the change.</p>`}
-</div>
-
-<div class="paper">
-  <span class="ribbon">Part three</span>
-  <h2>A person disagrees with a pick</h2>
-  ${r.disagreement
-    ? html`<p class="meta">${r.disagreement.by} said no to ${r.disagreement.contested.title}.</p>
-        <blockquote class="quote">${r.disagreement.feedback?.reason}<cite>${r.disagreement.by}, recorded with the pick</cite></blockquote>
-        <div class="callout">${r.disagreement.note}</div>
-        <p>${r.disagreement.representation}</p>
-        <h4>What changed</h4>${changeList(r.disagreement.changes)}`
-    : html`<p class="muted">No contested group pick was produced for this catalog.</p>`}
-</div>
-
-<div class="filmstrip" aria-hidden="true"></div>
-<details class="paper dark"><summary style="cursor:pointer;font-family:var(--type);letter-spacing:.08em;text-transform:uppercase">How the agent got here (${r.solo?.trace?.length ?? 0} steps in part one)</summary>
-  <div class="log" style="margin-top:12px"><ol>${(r.solo?.trace ?? []).map((s) => html`<li class="${s.status === 'warn' ? 'warn' : ''}"><span class="n">${String(s.n).padStart(2, '0')}</span><span><span class="tool">${s.tool.replaceAll('_', ' ')}</span> — ${s.summary}</span></li>`)}</ol></div></details>
-
-<p class="center"><form method="post" action="/judge"><button class="btn secondary" type="submit">Run it again</button></form></p>`,
-  });
-}
+const lineup = (r) => html`<ol class="snap">${r.picks.map((p) => html`<li>${p.movie.title} <span class="muted small">(${p.label}${p.groupLabel ? `, ${p.groupLabel}` : ''})</span></li>`)}</ol>`;
 
 export function judgeView({ jobs, provenance, jobId }) {
   const job = jobId ? jobs.get(jobId) : null;
-  if (!job) return intro({ provenance });
-  if (job.status === 'error') return errorView({ message: job.error, provenance });
-  if (job.status !== 'done' || !job.result) return runView({ job, provenance });
-  return walkthrough({ job, provenance });
+  if (job && job.mode !== 'judge') return errorView({ message: 'That is not a walkthrough.', provenance, status: 404 });
+  if (job && job.status === 'error') return errorView({ message: job.error, provenance });
+  if (job && job.status !== 'done') return runView({ job, provenance });
+
+  if (!job) {
+    return layout({
+      title: 'Judge walkthrough',
+      current: '/judge',
+      provenance,
+      body: html`
+<h1 class="center">Judge walkthrough</h1>
+<div class="paper"><p>Three things, run live by the agent:</p>
+<ul class="clean"><li>A recommendation with its reasoning, from ratings across sources.</li><li>What changed when a friend added a movie, before and after.</li><li>A recommendation a human disagreed with, and how the agent handled it.</li></ul>
+<p class="small muted">The people (Alex, Sam, Maya and Jordan) are seeded sample data, not real users. It runs on a throwaway copy, so nothing you entered is touched. The first run visits Letterboxd and Rotten Tomatoes for a dozen films or so and takes about a minute. After that it is cached.</p>
+<form method="post" action="/judge" class="center">${ticket({ tag: 'button', label: 'Run the walkthrough', admit: 'Judges', sub: 'Live, with a visible log', stub: 'Demo' })}</form></div>`,
+    });
+  }
+
+  const r = job.result;
+  const f = r.friend;
+  const d = r.disagreement;
+  const solo = r.solo;
+  return layout({
+    title: 'Judge walkthrough',
+    current: '/judge',
+    provenance,
+    body: html`
+<h1 class="center">Judge walkthrough</h1>
+<div class="banner warn"><strong>Seeded demo people.</strong> Alex, Sam and Maya are in a screening room. Jordan is not, so the agent never touches Jordan's history. ${r.missing.length ? `Not in the dataset, so skipped: ${r.missing.join(', ')}.` : ''}</div>
+
+<h2 class="center" style="margin-top:34px">1. A recommendation, with its reasoning</h2>
+<p class="center">Solo mode for Alex, who loved ${solo.profile.liked.slice(0, 4).join(', ')}, ${solo.profile.mood ? `is in a “${solo.profile.mood}” mood` : 'has no mood set'} and has a 150 minute limit.</p>
+${picksBlock(solo, false, job)}
+
+<div class="filmstrip" aria-hidden="true"></div>
+<h2 class="center">2. What changed when a friend added a movie</h2>
+${f ? html`<p class="center">Sam, who shares a room with Alex, just watched and loved <strong>${f.movie}</strong>. Alex's agent noticed and re-ran.</p>
+${f.analysis ? activityItem(f.analysis) : ''}
+<div class="paper"><h3>Alex's programme, before and after</h3>
+  <div class="two-col"><div><h4>Before</h4>${lineup(f.before)}</div><div><h4>After</h4>${lineup(f.after)}</div></div>
+  <p>${f.changes.primaryChanged ? html`The main pick changed from <strong>${f.changes.primaryBefore}</strong> to <strong>${f.changes.primaryAfter}</strong>.` : html`The main pick stayed <strong>${f.changes.primaryAfter}</strong>.`}${f.changes.added.length ? ` New in the lineup: ${f.changes.added.join(', ')}.` : ''}${f.changes.removed.length ? ` Out: ${f.changes.removed.join(', ')}.` : ''}</p></div>` : html`<p class="center muted">No suitable friend pick was available in this catalog.</p>`}
+
+<div class="filmstrip" aria-hidden="true"></div>
+<h2 class="center">3. A recommendation a human disagreed with</h2>
+${d ? html`<div class="banner warn"><strong>Illustrative example.</strong> ${d.note}</div>
+<div class="paper"><p>In group mode the agent picked <strong>${d.contested.title}</strong> (${d.contested.label}) for Alex, Sam and Maya. ${d.by} disagreed: <em>“${d.feedback.reason}”</em></p>
+  <div class="two-col"><div><h4>Before the veto</h4>${lineup(d.before)}</div><div><h4>After the veto</h4>${lineup(d.after)}</div></div>
+  <p style="margin-top:12px">${d.representation}</p></div>
+<h3 class="center">The group's new main pick</h3>
+${picksBlock(d.after, true, job)}` : html`<p class="center muted">No group pick was available.</p>`}
+
+<div class="filmstrip" aria-hidden="true"></div>
+<details class="paper dark"><summary style="cursor:pointer;font-family:var(--type);letter-spacing:.08em;text-transform:uppercase">Full agent log (${job.trace.steps.length} steps)</summary>
+  <div class="log" style="margin-top:12px"><ol>${job.trace.steps.map((s) => html`<li class="${s.status === 'warn' ? 'warn' : ''}"><span class="n">${String(s.n).padStart(2, '0')}</span><span><span class="tool">${s.tool.replaceAll('_', ' ')}</span> — ${s.summary}</span></li>`)}</ol></div></details>
+<p class="center"><form method="post" action="/judge" style="display:inline"><button class="btn secondary" type="submit">Run again</button></form></p>`,
+  });
 }
