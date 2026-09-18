@@ -12,7 +12,7 @@
       var href = open.getAttribute('href');
       if (reduce) { window.location.href = href; return; }
       document.documentElement.classList.add('curtains-open');
-      window.setTimeout(function () { window.location.href = href; }, 1500);
+      window.setTimeout(function () { window.location.href = href; }, 1100);
     });
   }
 
@@ -112,6 +112,93 @@
     };
     poll();
   }
+
+  // ---- scenes: show one fieldset at a time ----
+  // The form, its fields and its action are untouched; this only changes how much
+  // of it is on screen at once. Without this script the whole form is visible and
+  // submits exactly the same way.
+  document.querySelectorAll('form[data-scenes]').forEach(function (form) {
+    var scenes = [].slice.call(form.querySelectorAll(':scope > fieldset'));
+    if (scenes.length < 2) return;
+    var submitWrap = form.querySelector('[data-submit]');
+    var at = 0;
+
+    form.classList.add('scened');
+
+    // Slate: which scene this is, and how many are left.
+    var slate = document.createElement('div');
+    slate.className = 'slate';
+    var label = document.createElement('span');
+    var ticks = document.createElement('span');
+    ticks.className = 'slate__ticks';
+    scenes.forEach(function () { ticks.appendChild(document.createElement('i')); });
+    slate.appendChild(label);
+    slate.appendChild(ticks);
+    form.insertBefore(slate, scenes[0]);
+
+    // Controls.
+    var nav = document.createElement('div');
+    nav.className = 'scene-nav';
+    var back = document.createElement('button');
+    back.type = 'button';
+    back.className = 'btn secondary';
+    back.textContent = 'Back';
+    var next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'btn';
+    next.textContent = 'Next';
+    var spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    nav.appendChild(back);
+    nav.appendChild(spacer);
+    nav.appendChild(next);
+    form.insertBefore(nav, submitWrap || null);
+
+    function show(i, focus) {
+      at = Math.max(0, Math.min(scenes.length - 1, i));
+      scenes.forEach(function (fs, n) {
+        var on = n === at;
+        fs.classList.toggle('is-scene', on);
+        if (on) {
+          fs.classList.remove('scene-in');
+          void fs.offsetWidth; // restart the cut
+          fs.classList.add('scene-in');
+        }
+      });
+      [].slice.call(ticks.children).forEach(function (t, n) { t.classList.toggle('on', n <= at); });
+      label.textContent = 'Scene ' + (at + 1) + ' of ' + scenes.length;
+      back.hidden = at === 0;
+      var last = at === scenes.length - 1;
+      next.hidden = last;
+      if (submitWrap) submitWrap.hidden = !last;
+      if (focus) {
+        var first = scenes[at].querySelector('input:not([type=hidden]), select, textarea, button');
+        var legend = scenes[at].querySelector('legend, label.field');
+        if (legend) { legend.setAttribute('tabindex', '-1'); legend.focus(); }
+        else if (first) first.focus();
+      }
+    }
+
+    next.addEventListener('click', function () { show(at + 1, true); });
+    back.addEventListener('click', function () { show(at - 1, true); });
+
+    // Enter in a text field would otherwise post a half-finished form.
+    form.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      var t = e.target;
+      if (t.tagName === 'TEXTAREA' || t.type === 'submit' || t.type === 'button') return;
+      if (at < scenes.length - 1) { e.preventDefault(); show(at + 1, true); }
+    });
+
+    // If the browser blocks submit on an invalid required field, jump to it.
+    form.addEventListener('invalid', function (e) {
+      var fs = e.target.closest('fieldset');
+      var i = scenes.indexOf(fs);
+      if (i > -1 && i !== at) show(i, true);
+    }, true);
+
+    show(0, false);
+  });
 
   // ---- copy invite link ----
   document.querySelectorAll('[data-copy]').forEach(function (btn) {

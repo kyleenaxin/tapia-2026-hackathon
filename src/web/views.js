@@ -18,9 +18,8 @@ export function welcomeView() {
 <div class="stage-hall">
   <header class="marquee"><span class="brand">UP NEXT</span><span class="tag">Welcome to the platform</span></header>
   <h1 class="visually-hidden">Welcome to Up Next</h1>
-  <p class="hint" style="max-width:34rem;margin:0 auto 26px">A movie advisor that reads the reviews, checks the ratings and tells you why. Pick alone or with friends.</p>
-  ${ticket({ href: '/mode', label: 'Get started', sub: 'One ticket, one great movie', attrs: 'data-open-curtains' })}
-  <p class="hint">Tap the ticket to open the curtains</p>
+  <p class="hint" style="max-width:26rem;margin:0 auto 28px">A movie picked for you, with the reasons why.</p>
+  ${ticket({ href: '/mode', label: 'Get started', sub: '', attrs: 'data-open-curtains' })}
 </div>`,
   });
 }
@@ -32,15 +31,11 @@ export function modeView({ provenance }) {
     provenance,
     body: html`
 <h1 class="center">Who's watching?</h1>
-<p class="center">Choose how you want to pick tonight's movie.</p>
 <div class="mode-grid">
-  ${ticket({ href: '/solo', admit: 'Solo mode', label: 'Just me', sub: 'A screening for one', stub: 'Solo', attrs: '' })}
-  ${ticket({ href: '/group', admit: 'Group mode', label: 'With friends', sub: 'In person or online', stub: 'Group', attrs: '' })}
+  ${ticket({ href: '/solo', admit: 'Solo', label: 'Just me', sub: 'A screening for one', stub: 'Solo', attrs: '' })}
+  ${ticket({ href: '/group', admit: 'Group', label: 'With friends', sub: 'In person or online', stub: 'Group', attrs: '' })}
 </div>
-<div class="paper dark">
-  <h3>Solo</h3><p>Tell the agent what you like and what you cannot stand. It finds one main pick and two backups, and explains every choice.</p>
-  <h3>Group</h3><p>Open a screening room, invite people (or add them on this device), and the agent finds something everyone can live with. Hard no's are respected, and it says out loud when a pick is a compromise.</p>
-</div>`,
+<p class="center help">One main pick and two backups, with the reasons behind each.</p>`,
   });
 }
 
@@ -62,47 +57,53 @@ function picker({ name, label, help }) {
 export function prefsForm({ action, user, genres, heading, intro, submitLabel, hidden = {}, showImport = true, saved = 0 }) {
   const p = user.prefs;
   const pickGenres = genres.filter((g) => g !== 'TV Movie');
-  return html`<form class="paper" method="post" action="${action}" enctype="multipart/form-data">
-  <h2>${heading}</h2>
-  <p>${intro}</p>
+  // Each direct-child fieldset is one scene. site.js shows them one at a time;
+  // without it they simply stack and the form behaves as it always did.
+  return html`<form class="paper" method="post" action="${action}" enctype="multipart/form-data" data-scenes>
+  ${heading ? html`<h2>${heading}</h2>` : ''}
+  ${intro ? html`<p class="help">${intro}</p>` : ''}
   ${Object.entries(hidden).map(([k, v]) => html`<input type="hidden" name="${k}" value="${v}">`)}
 
-  <fieldset><label class="field" for="name">What should we call you?</label>
-    <input type="text" id="name" name="name" maxlength="40" value="${user.name === 'Guest' ? '' : user.name}" placeholder="Your name (optional for solo)"></fieldset>
+  <fieldset><legend>Who's watching?</legend>
+    <label class="visually-hidden" for="name">Your name</label>
+    <input type="text" id="name" name="name" maxlength="40" value="${user.name === 'Guest' ? '' : user.name}" placeholder="Your name"></fieldset>
 
-  <fieldset><legend>Favorite genres</legend><p class="help">Pick any that make you happy.</p>
+  <fieldset><legend>What kind of night?</legend>
+    <div class="radio-tiles">${Object.entries(MOODS).map(([k, m]) => chip('radio', 'mood', k, m.label, p.mood === k))}${chip('radio', 'mood', '', 'Not sure', !p.mood)}</div></fieldset>
+
+  <fieldset><legend>What do you love?</legend>
     <div class="chips">${pickGenres.map((g) => chip('checkbox', 'genres', g, g, p.genres.includes(g)))}</div></fieldset>
 
-  <fieldset><legend>Current mood</legend><p class="help">What kind of night is it?</p>
-    <div class="radio-tiles">${Object.entries(MOODS).map(([k, m]) => chip('radio', 'mood', k, m.label, p.mood === k))}${chip('radio', 'mood', '', 'Not sure yet', !p.mood)}</div></fieldset>
+  <fieldset><legend>Films you loved</legend>
+    ${picker({ name: 'loved', label: 'Ones you would watch again', help: 'This teaches the agent more than anything else.' })}
+    <details class="more"><summary>Also tell it what to avoid</summary>
+      <div style="margin-top:14px">${picker({ name: 'disliked', label: 'Films that missed', help: 'It steers away from lookalikes.' })}</div>
+      <div style="margin-top:14px">${picker({ name: 'watched', label: 'Already seen', help: 'These will not be recommended.' })}</div>
+      ${saved ? html`<p class="help">${saved} film${saved === 1 ? '' : 's'} already saved. Anything here is on top of that.</p>` : ''}
+    </details></fieldset>
 
-  <fieldset><legend>Movies you loved</legend>
-    ${picker({ name: 'loved', label: 'Films you would happily watch again', help: 'These teach the agent your taste more than anything else.' })}</fieldset>
-  <fieldset><legend>Movies you disliked</legend>
-    ${picker({ name: 'disliked', label: 'Films that missed for you', help: 'The agent steers away from lookalikes.' })}</fieldset>
-  <fieldset><legend>Movies you have already watched</legend>
-    ${picker({ name: 'watched', label: 'Anything else you have seen', help: 'The agent will not recommend these.' })}
-    ${saved ? html`<p class="help">You already have ${saved} film${saved === 1 ? '' : 's'} saved. Anything you add here is on top of that (see My shelf).</p>` : ''}</fieldset>
+  <fieldset><legend>How long have you got?</legend>
+    <label class="visually-hidden" for="rt">Maximum runtime</label>
+    <select id="rt" name="maxRuntime">${RUNTIMES.map(([v, l]) => html`<option value="${v}" ${String(p.maxRuntime ?? '') === v ? raw('selected') : ''}>${l}</option>`)}</select></fieldset>
 
-  <fieldset><legend>Longest you will sit through</legend>
-    <select name="maxRuntime" aria-label="Maximum runtime">${RUNTIMES.map(([v, l]) => html`<option value="${v}" ${String(p.maxRuntime ?? '') === v ? raw('selected') : ''}>${l}</option>`)}</select></fieldset>
-
-  <fieldset><legend>Hard no's</legend>
-    <p class="help">These are filters, not preferences. Nothing that breaks one will be recommended.</p>
+  <fieldset><legend>Anything you can't watch?</legend>
+    <p class="help">Filters, not preferences. Nothing breaking one gets recommended.</p>
     <div class="chips">${pickGenres.map((g) => chip('checkbox', 'hardNoGenres', g, g, p.avoidGenres.includes(g), 'no'))}</div>
-    <p class="help" style="margin-top:12px">Content to avoid (based on themes and review text, so it can miss things):</p>
-    <div class="chips">${Object.entries(CONTENT_FLAGS).map(([k, f]) => chip('checkbox', 'avoidFlags', k, f.label, (p.avoidFlags ?? []).includes(k), 'no'))}</div>
-    <label class="field" for="terms" style="margin-top:12px">Anything else? Words that should rule a film out</label>
-    <input type="text" id="terms" name="hardNoTerms" value="${(p.hardNoTerms ?? []).join(', ')}" placeholder="for example: clown, zombie, musical">
-    <p class="help">Checked against the title, synopsis and themes.</p></fieldset>
+    <details class="more"><summary>Content and keywords</summary>
+      <p class="help" style="margin-top:12px">Read from themes and review text, so it can miss things.</p>
+      <div class="chips">${Object.entries(CONTENT_FLAGS).map(([k, f]) => chip('checkbox', 'avoidFlags', k, f.label, (p.avoidFlags ?? []).includes(k), 'no'))}</div>
+      <label class="field" for="terms" style="margin-top:14px">Words that rule a film out</label>
+      <input type="text" id="terms" name="hardNoTerms" value="${(p.hardNoTerms ?? []).join(', ')}" placeholder="clown, zombie, musical">
+    </details></fieldset>
 
-  ${showImport ? html`<fieldset><legend>Import your Letterboxd history (optional)</legend>
-    <p class="help">On Letterboxd, go to Settings, then Import &amp; Export, and export your data. Upload ratings.csv (best), watched.csv or watchlist.csv. The file is read once; only the films we recognize are saved.</p>
+  ${showImport ? html`<fieldset><legend>Bring your history?</legend>
+    <p class="help">Optional. Upload a Letterboxd export and skip the typing.</p>
     <input type="file" name="importCsv" accept=".csv,text/csv" aria-label="Letterboxd export file">
-    <label class="field" for="kind" style="margin-top:10px">What kind of file is it?</label>
-    <select id="kind" name="importKind"><option value="auto">Ratings or watched films</option><option value="watchlist">My watchlist</option></select></fieldset>` : ''}
+    <label class="field" for="kind" style="margin-top:12px">What is it?</label>
+    <select id="kind" name="importKind"><option value="auto">Ratings or watched</option><option value="watchlist">Watchlist</option></select>
+    <details class="more"><summary>Where to find it</summary><p class="help" style="margin-top:10px">Letterboxd → Settings → Import &amp; Export → Export your data. Use ratings.csv. Read once; only recognized films are saved.</p></details></fieldset>` : ''}
 
-  <div class="center" style="margin-top:20px">${ticket({ tag: 'button', label: submitLabel, admit: 'Screening', sub: 'The agent will take it from here', stub: 'Start' })}</div>
+  <div class="center" data-submit style="margin-top:22px">${ticket({ tag: 'button', label: submitLabel, admit: 'Screening', sub: '', stub: 'Start' })}</div>
 </form>`;
 }
 
@@ -188,6 +189,17 @@ function feedbackForms({ pick, job, members, group }) {
 </div>`;
 }
 
+// This dataset has no artwork, so a film gets a typographic frame rather than an
+// invented poster. Hidden from assistive tech: the title and year are already in
+// the heading and the meta line right next to it.
+function filmFrame(movie, runtime) {
+  const edge = [movie.year ?? '----', runtime ? `${runtime} MIN` : 'RUNTIME N/A'].join(' · ');
+  return html`<figure class="frame" aria-hidden="true">
+  <span class="frame__stock"><span class="frame__title">${movie.title}</span></span>
+  <figcaption class="frame__cap">${edge}${movie.directors?.[0] ? html`<br>DIR. ${movie.directors[0]}` : ''}</figcaption>
+</figure>`;
+}
+
 function pickCard({ pick, job, members, group, readOnly, backup }) {
   const m = pick.movie;
   const meta = [m.year, pick.runtime.minutes ? `${pick.runtime.minutes} min` : 'runtime unknown', m.directors?.[0] ? `dir. ${m.directors[0]}` : null].filter(Boolean).join(' · ');
@@ -197,21 +209,23 @@ function pickCard({ pick, job, members, group, readOnly, backup }) {
   ${pick.angle ? html`<p class="small muted">${pick.angle}.</p>` : ''}
   ${m.overview ? html`<p class="synopsis">${m.overview}</p>` : ''}
   ${group ? html`<h4>Fit for each person</h4><div class="fitbars">${pick.perMember.map((p) => html`<div class="fitbar"><span>${p.name}</span><span class="track"><i class="fill" style="width:${Math.round(p.fit * 100)}%"></i></span><span>${Math.round(p.fit * 100)}%</span></div>`)}</div>${pick.favors ? html`<p class="small muted">Leans toward ${pick.favors}'s taste.</p>` : ''}` : ''}
-  <h4>Why it was recommended</h4>
+  <h4>Why</h4>
   <ul class="clean">${pick.reasons.map((r) => html`<li><span class="reason-tag">${r.signal}</span>${r.text}</li>`)}</ul>
-  <h4>Ratings from multiple sources</h4>
-  ${ratingsTable(pick)}
-  <h4>What people are saying</h4>
-  ${pick.reviews.points.length ? html`<ul class="clean">${pick.reviews.points.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
-  ${pick.reviews.quote ? html`<blockquote class="quote">“${pick.reviews.quote.text}”<cite>${pick.reviews.quote.user}, Letterboxd (${pick.reviews.quote.likes.toLocaleString('en-US')} likes)</cite></blockquote>` : ''}
-  <p class="small muted">${pick.reviews.basis}</p>
-  <h4>Potential drawbacks</h4>
+  <h4>Drawbacks</h4>
   <ul class="clean drawbacks">${pick.drawbacks.map((d) => html`<li>${d}</li>`)}</ul>
+  <details class="more"><summary>Ratings and reviews</summary>
+    <div style="margin-top:14px">
+      ${ratingsTable(pick)}
+      ${pick.reviews.points.length ? html`<h4>What people say</h4><ul class="clean">${pick.reviews.points.map((t) => html`<li>${t}</li>`)}</ul>` : ''}
+      ${pick.reviews.quote ? html`<blockquote class="quote">“${pick.reviews.quote.text}”<cite>${pick.reviews.quote.user}, Letterboxd (${pick.reviews.quote.likes.toLocaleString('en-US')} likes)</cite></blockquote>` : ''}
+      <p class="small muted">${pick.reviews.basis}</p>
+    </div></details>
   ${sourceLinks(pick)}`;
   return html`<article class="paper pick ${backup ? 'backup' : 'primary'}" aria-label="${pick.label}: ${m.title}">
   <span class="ribbon">${pick.label}</span>
+  ${filmFrame(m, pick.runtime.minutes)}
   <h2>${m.title}</h2>
-  ${backup ? html`<details class="more" open><summary>Details</summary>${body}</details>` : body}
+  ${backup ? html`<details class="more"><summary>Details</summary>${body}</details>` : body}
   ${readOnly ? '' : feedbackForms({ pick, job, members, group })}
 </article>`;
 }
@@ -250,7 +264,6 @@ export function soloView({ user, genres, saved, provenance }) {
     provenance,
     body: html`
 <h1 class="center">Tell us your taste</h1>
-<p class="center">The more you share, the sharper the pick. Skip anything you like.</p>
-${prefsForm({ action: '/solo', user, genres, heading: 'Your screening for one', intro: 'Answer what you can. If something is unclear, the agent will ask one or two follow-up questions.', submitLabel: 'Show me what to watch', saved })}`,
+${prefsForm({ action: '/solo', user, genres, heading: '', intro: '', submitLabel: 'Show me what to watch', saved })}`,
   });
 }

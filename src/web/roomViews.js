@@ -99,9 +99,9 @@ export function roomTasteView({ room, target, isSelf, genres, saved, provenance 
     title: `Taste for ${room.name}`,
     provenance,
     body: html`
-<h1 class="center">${isSelf ? 'Your taste for movie night' : `${target.name}'s taste`}</h1>
-<p class="center">Answered for room ${room.code}. Everything here is visible to the room.</p>
-${prefsForm({ action: `/room/${room.code}/taste`, user: target, genres, heading: isSelf ? 'Tell us what you like' : `Asking for ${target.name}`, intro: 'Same questions as solo mode. The agent balances everyone.', submitLabel: 'Save my taste', hidden: isSelf ? {} : { as: target.id }, saved })}`,
+<h1 class="center">${isSelf ? 'Your taste' : `${target.name}'s taste`}</h1>
+<p class="center help">Visible to room ${room.code}.</p>
+${prefsForm({ action: `/room/${room.code}/taste`, user: target, genres, heading: '', intro: '', submitLabel: 'Save my taste', hidden: isSelf ? {} : { as: target.id }, saved })}`,
   });
 }
 
