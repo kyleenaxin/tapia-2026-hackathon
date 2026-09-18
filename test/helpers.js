@@ -5,7 +5,7 @@ import { Store } from '../src/store.js';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-export function mv(id, title, genres, { keywords = [], runtime = 100, year = 2010, rating = [7, 1000] } = {}) {
+export function mv(id, title, genres, { keywords = [], runtime = 100, year = 2010, rating = [7, 1000], overview = '', themes = [], reviews = [] } = {}) {
   return {
     id,
     title,
@@ -13,6 +13,9 @@ export function mv(id, title, genres, { keywords = [], runtime = 100, year = 201
     runtime,
     genres,
     keywords,
+    overview,
+    themes,
+    reviews,
     ratings: rating ? [{ source: 'tmdb', value: rating[0], votes: rating[1], kind: 'audience' }] : [],
   };
 }
@@ -33,6 +36,14 @@ export const fixtureCatalog = () => loadCatalog({ sampleFile: SAMPLE_FILE });
 
 export function newStore() {
   return new Store();
+}
+
+// Visibility is by screening room: everyone in a room can see each other and nobody else.
+// Returns the room so a test can call store.leaveRoom(room.code, userId).
+export function roomOf(store, host, ...others) {
+  const room = store.createRoom({ hostId: host.id });
+  for (const u of others) store.joinRoom(room.code, u.id);
+  return room;
 }
 
 export function addWatched(store, userId, ids, verdict = 'liked') {

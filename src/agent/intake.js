@@ -26,7 +26,7 @@ export function importLetterboxd({ store, catalog, userId, csv, kind = 'auto' })
   if (!rows.length) return { rows: 0, matched: 0, unmatched: 0, note: 'The file had no rows I could read. Letterboxd exports (ratings.csv, watched.csv, watchlist.csv) have Name and Year columns.' };
   let matched = 0;
   for (const r of rows) {
-    const m = findByTitle(catalog, r.Name, Number(r.Year) || null);
+    const m = findByTitle(catalog, r.Name, Number(r.Year) || null, { strict: true });
     if (!m) continue;
     matched++;
     if (kind === 'watchlist') store.addEntry({ userId, movieId: m.id, status: 'watchlist' });

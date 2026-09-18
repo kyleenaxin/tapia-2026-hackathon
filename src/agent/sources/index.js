@@ -9,7 +9,7 @@ export function createSources({ env = process.env, fetcher = createPoliteFetcher
 
   async function cached(name, movie, fn, { needsScraping = false } = {}) {
     if (needsScraping && !scrapingOn) return { source: name, status: 'disabled', reason: 'web scraping is turned off (ENABLE_WEB_SCRAPING=0)' };
-    const key = `v2:${name}:${movie.id}`;
+    const key = `v3:${name}:${movie.id}`;
     const hit = cache.get(key);
     if (hit) return { ...hit, cached: true };
     const res = await fn(movie, ctx);

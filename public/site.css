@@ -230,3 +230,14 @@ footer.site a { color: var(--gold); }
 
 .wrap.bare { position: static; z-index: auto; max-width: none; padding: 0; }
 body.welcome .drape { display: none; }
+footer.site { max-width: 860px; margin: 0 auto; overflow-wrap: anywhere; }
+.pick { display: block; }
+@media (max-width: 720px) {
+  .ratings th:nth-child(5), .ratings td:nth-child(5) { display: none; }
+  .ratings td, .ratings th { padding-right: 6px; }
+  .marquee { padding: 16px 14px; }
+  .marquee .tag { letter-spacing: .1em; font-size: .72rem; }
+  nav.main { gap: 2px 14px; font-size: .85rem; }
+  .actions { gap: 8px; }
+  .actions .btn { padding: 8px 12px; }
+}
