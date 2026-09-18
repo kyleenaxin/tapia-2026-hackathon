@@ -295,6 +295,23 @@ textarea { min-height: 96px; resize: vertical; }
 .suggest button:hover, .suggest button[aria-selected='true'] { background: var(--paper-2); }
 .suggest small { color: var(--ink-2); font-family: var(--type); font-size: .76rem; }
 
+/* ---------- shelf: editorial sections, not a stack of identical boxes ---------- */
+.shelf { margin: 34px 0; }
+.shelf > h2 {
+  display: flex; align-items: baseline; gap: 12px;
+  font-family: var(--type); font-size: .78rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--ink); border-bottom: 2px solid var(--ink); padding-bottom: 7px; margin-bottom: 4px;
+}
+.shelf > h2 .count { font-size: .72rem; color: var(--red); }
+.shelf > .muted { padding-top: 12px; }
+/* A details styled as a card keeps its summary looking like the card's heading. */
+details.paper { padding: 18px 30px; }
+details.paper[open] { padding-bottom: 26px; }
+details.paper > summary { list-style: none; }
+details.paper > summary::-webkit-details-marker { display: none; }
+details.paper > summary::before { content: '+ '; color: var(--red); }
+details.paper[open] > summary::before { content: '\2212 '; }
+
 /* ---------- scenes: one decision at a time ----------
    Applied by site.js. Without it the form stays a single page, so nothing here
    is load-bearing for people without JavaScript. */

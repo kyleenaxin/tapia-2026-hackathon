@@ -76,7 +76,7 @@ export function roomView({ room, viewer, members, events, inviteUrl, provenance,
 <div class="paper center"><div class="small muted">Room code</div><div class="roomcode">${room.code}</div>
   <p class="small muted">${room.setting === 'online' ? 'Watching online' : 'Watching in person'} · hosted by ${members.find((m) => m.id === room.hostId)?.name ?? 'the host'}</p>
   <p><button class="btn secondary small" type="button" data-copy="${inviteUrl}">Copy invite link</button></p>
-  <p class="small muted">${inviteUrl}</p></div>
+  <details class="more"><summary>Show the link</summary><p class="small muted" style="margin-top:8px;word-break:break-all">${inviteUrl}</p></details></div>
 ${flash ? html`<div class="banner">${flash}</div>` : ''}
 <div class="paper"><h2>Who's in</h2>
   ${members.map((m) => html`<div class="person"><div><strong>${m.name}</strong> ${m.id === room.hostId ? html`<span class="tag">Host</span>` : ''} ${m.managedBy ? html`<span class="tag">On this device</span>` : ''}
@@ -117,18 +117,18 @@ export function shelfView({ user, watched, wants, thumbsUp, passed, events, prov
     provenance,
     body: html`
 <h1 class="center">${user.name === 'Guest' ? 'My shelf' : `${user.name}'s shelf`}</h1>
-<p class="center">Everything the agent knows about your taste. Change anything and the next recommendation changes with it.</p>
-<div class="paper"><h2>Add a film you watched</h2>
-  <form method="post" action="/shelf/add" enctype="multipart/form-data">
+<p class="center help">Change anything here and the next pick changes with it.</p>
+<details class="paper more"><summary>Add a film</summary>
+  <form method="post" action="/shelf/add" enctype="multipart/form-data" style="margin-top:16px">
     <div class="picker"><label class="field" for="p-title">Title</label><div class="chips-out"></div><input type="search" id="p-title" hidden placeholder="Start typing a title" autocomplete="off"><div class="suggest" role="listbox" hidden></div><textarea name="title" rows="2" placeholder="Title (year)"></textarea><p class="help nojs-help">Title, with the year in brackets if needed.</p></div>
     <div class="actions"><label class="visually-hidden" for="sv">How was it?</label><select id="sv" name="verdict"><option value="">How was it?</option><option value="liked">Loved it</option><option value="meh">It was okay</option><option value="disliked">Did not like it</option></select>
       <select name="status" aria-label="List"><option value="watched">I watched it</option><option value="watchlist">I want to watch it</option></select><button class="btn" type="submit">Add to shelf</button></div>
-  </form></div>
-<div class="paper"><h2>Watched (${watched.length})</h2>${watched.length ? watched.map(({ movie, entry }) => row(movie, html`<span class="tag ${entry.verdict === 'liked' ? 'good' : entry.verdict === 'disliked' ? 'warn' : ''}">${VERDICT_LABEL[entry.verdict] ?? 'No opinion yet'}</span>
-  <form method="post" action="/shelf/verdict"><input type="hidden" name="movie" value="${movie.id}"><select name="verdict" aria-label="Change verdict for ${movie.title}"><option value="">No opinion</option><option value="liked" ${entry.verdict === 'liked' ? raw('selected') : ''}>Loved it</option><option value="meh" ${entry.verdict === 'meh' ? raw('selected') : ''}>It was okay</option><option value="disliked" ${entry.verdict === 'disliked' ? raw('selected') : ''}>Did not like it</option></select> <button class="btn secondary small" type="submit">Save</button></form>${remove(movie.id)}`)) : html`<p class="muted">Nothing yet. Add films above, or tell the agent in Solo mode.</p>`}</div>
-<div class="paper"><h2>Want to watch (${wants.length})</h2>${wants.length ? wants.map(({ movie }) => row(movie, remove(movie.id))) : html`<p class="muted">Use "Want to watch" on any recommendation.</p>`}</div>
-<div class="paper"><h2>Thumbs up (${thumbsUp.length})</h2>${thumbsUp.length ? thumbsUp.map(({ movie, fb }) => row(movie, html`<form method="post" action="/shelf/unfeedback"><input type="hidden" name="id" value="${fb.id}"><button class="btn secondary small" type="submit">Undo</button></form>`)) : html`<p class="muted">Films you liked the look of.</p>`}</div>
-<div class="paper"><h2>Passed on (${passed.length})</h2>${passed.length ? passed.map(({ movie, fb }) => row(movie, html`<span class="small muted">${fb.kind.replaceAll('-', ' ')}${fb.reason ? `: ${fb.reason}` : ''}</span><form method="post" action="/shelf/unfeedback"><input type="hidden" name="id" value="${fb.id}"><button class="btn secondary small" type="submit">Undo</button></form>`)) : html`<p class="muted">Thumbs-downs are recorded here with your reason. They are never overwritten by the model.</p>`}</div>
+  </form></details>
+<section class="shelf"><h2>Watched <span class="count">${watched.length}</span></h2>${watched.length ? watched.map(({ movie, entry }) => row(movie, html`<span class="tag ${entry.verdict === 'liked' ? 'good' : entry.verdict === 'disliked' ? 'warn' : ''}">${VERDICT_LABEL[entry.verdict] ?? 'No opinion yet'}</span>
+  <form method="post" action="/shelf/verdict"><input type="hidden" name="movie" value="${movie.id}"><select name="verdict" aria-label="Change verdict for ${movie.title}"><option value="">No opinion</option><option value="liked" ${entry.verdict === 'liked' ? raw('selected') : ''}>Loved it</option><option value="meh" ${entry.verdict === 'meh' ? raw('selected') : ''}>It was okay</option><option value="disliked" ${entry.verdict === 'disliked' ? raw('selected') : ''}>Did not like it</option></select> <button class="btn secondary small" type="submit">Save</button></form>${remove(movie.id)}`)) : html`<p class="muted">Nothing yet. Add films above, or tell the agent in Solo mode.</p>`}</section>
+<section class="shelf"><h2>Want to watch <span class="count">${wants.length}</span></h2>${wants.length ? wants.map(({ movie }) => row(movie, remove(movie.id))) : html`<p class="muted">Use "Want to watch" on any recommendation.</p>`}</section>
+<section class="shelf"><h2>Thumbs up <span class="count">${thumbsUp.length}</span></h2>${thumbsUp.length ? thumbsUp.map(({ movie, fb }) => row(movie, html`<form method="post" action="/shelf/unfeedback"><input type="hidden" name="id" value="${fb.id}"><button class="btn secondary small" type="submit">Undo</button></form>`)) : html`<p class="muted">Films you liked the look of.</p>`}</section>
+<section class="shelf"><h2>Passed on <span class="count">${passed.length}</span></h2>${passed.length ? passed.map(({ movie, fb }) => row(movie, html`<span class="small muted">${fb.kind.replaceAll('-', ' ')}${fb.reason ? `: ${fb.reason}` : ''}</span><form method="post" action="/shelf/unfeedback"><input type="hidden" name="id" value="${fb.id}"><button class="btn secondary small" type="submit">Undo</button></form>`)) : html`<p class="muted">Thumbs-downs are recorded here with your reason. They are never overwritten by the model.</p>`}</section>
 ${events.length ? html`<div class="paper dark"><h2>What roommates added</h2></div>${events.slice(0, 5).map((e) => activityItem(e.analysis))}` : ''}
 <p class="center"><a class="btn" href="/solo">Get a recommendation</a></p>`,
   });

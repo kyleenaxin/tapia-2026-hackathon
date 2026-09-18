@@ -113,13 +113,13 @@ export function askView({ job, provenance }) {
     title: 'A quick question',
     provenance,
     body: html`
-<h1 class="center">The projectionist has a question</h1>
-<p class="center">${job.questions.length === 1 ? 'One quick thing' : 'Two quick things'} before I start. I only ask when I cannot safely guess.</p>
+<h1 class="center">One question first</h1>
+<p class="center help">I only ask when I cannot safely guess.</p>
 ${job.notes.length ? html`<div class="banner">${job.notes.map((n) => html`<div>${n}</div>`)}</div>` : ''}
-<form class="paper" method="post" action="/run/${job.id}/answers">
+<form class="paper" method="post" action="/run/${job.id}/answers" data-scenes>
   ${job.questions.map((q) => html`<fieldset><legend>${q.text}</legend><p class="help">${q.why}</p>
     <div class="radio-tiles">${q.options.map((o, i) => chip('radio', q.id, o.value, o.label, false))}</div></fieldset>`)}
-  <div class="center">${ticket({ tag: 'button', label: 'Continue', admit: 'Answer', sub: 'Then I get to work', stub: 'Go' })}</div>
+  <div class="center" data-submit>${ticket({ tag: 'button', label: 'Continue', admit: 'Answer', sub: '', stub: 'Go' })}</div>
 </form>`,
   });
 }
@@ -133,14 +133,14 @@ export function runView({ job, provenance }) {
     provenance,
     headExtra,
     body: html`
-<h1 class="center">The projectionist is at work</h1>
-<p class="center">${job.mode === 'judge' ? 'Running the whole walkthrough: a recommendation, a friend adding a movie, and a group disagreement.' : 'Every tool call is logged below. Nothing is hidden.'}</p>
+<h1 class="center">Now developing</h1>
+<p class="center help">${job.mode === 'judge' ? 'The whole walkthrough, start to finish.' : 'Every step is logged below.'}</p>
 ${job.banner ? html`<div class="banner">${job.banner}</div>` : ''}
 <div class="log" id="run" data-status="/run/${job.id}/status" data-results="/results/${job.id}" data-seen="${steps.length}" aria-live="polite">
   <ol id="steps">${steps.map((s) => html`<li class="${s.status === 'warn' ? 'warn' : ''}"><span class="n">${String(s.n).padStart(2, '0')}</span><span><span class="tool">${s.tool.replaceAll('_', ' ')}</span> — ${s.summary}</span></li>`)}</ol>
   <div class="now" id="now">${job.trace?.current ?? 'Getting started'}</div>
 </div>
-<p class="center small muted" style="margin-top:18px">First-time lookups take a few seconds because the agent visits each site politely, one page at a time. Repeat lookups are cached.</p>`,
+<p class="center small muted" style="margin-top:18px">First run takes a few seconds: one page at a time, politely. Repeats are cached.</p>`,
   });
 }
 
