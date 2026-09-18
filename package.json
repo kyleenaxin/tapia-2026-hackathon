@@ -12,6 +12,8 @@
     "dev": "node --watch src/server.js",
     "test": "node --test",
     "demo": "node src/demo/run.js",
-    "build-data": "node scripts/build-data.js"
+    "build-data": "node scripts/build-data.js",
+    "start:web": "node src/web/server.js",
+    "dev:web": "node --watch src/web/server.js"
   }
 }
