@@ -3,7 +3,7 @@ import { scoreMovie, weightsFor } from './rank.js';
 import { similarity, mostSimilar } from './similarity.js';
 import { publicMovie } from '../data/catalog.js';
 import { HttpError } from '../store.js';
-import { hardNoReason } from './constraints.js';
+import { hardNoReason, notAFeature } from './constraints.js';
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
 const pct = (x) => `${Math.round(x * 100)}%`;
@@ -33,7 +33,7 @@ export function rankForGroup({ hostId, participantIds = [], setting = 'in-person
 
   const members = users.map((user) => {
     const profile = buildProfile({ user, entries: store.entriesFor(user.id), catalog, feedback: store.feedbackFor(user.id) });
-    return { user, profile, weights: weightsFor(profile), vetoed: new Set(store.feedbackFor(user.id).filter((f) => f.context === 'group' && f.kind !== 'seen-it').map((f) => f.movieId)) };
+    return { user, profile, weights: weightsFor(profile), vetoed: new Set(store.feedbackFor(user.id).filter((f) => f.context === 'group' && f.kind !== 'seen-it' && f.kind !== 'thumbs-up').map((f) => f.movieId)) };
   });
   trace?.step('load_profiles', {}, members.map((m) => `${m.user.name}: ${m.profile.watchedCount} watched`).join('; '));
 
@@ -53,6 +53,7 @@ export function rankForGroup({ hostId, participantIds = [], setting = 'in-person
   for (const movie of catalog.movies) {
     if (members.every((m) => m.profile.seenIds.has(movie.id))) { bump('seen-by-everyone'); continue; }
     if (members.some((m) => m.vetoed.has(movie.id))) { bump('vetoed-by-a-participant'); continue; }
+    if (notAFeature(movie)) { bump('not-a-feature'); continue; }
     const blocked = members.map((m) => hardNoReason(movie, m.user.prefs)).find(Boolean);
     if (blocked) { bump(blocked.code); continue; }
     if (maxRuntime && movie.runtime && movie.runtime > maxRuntime) { bump('too-long'); continue; }

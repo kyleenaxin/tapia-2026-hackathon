@@ -72,3 +72,13 @@ export function analyzeReviews(reviews, { minMentions = 2 } = {}) {
     note: usable.length < 5 ? `Based on only ${usable.length} review(s); treat themes as tentative.` : '',
   };
 }
+
+const PROFANITY = /\b(fuck\w*|shit\w*|bitch\w*|cunt\w*|dick\w*|cock\w*|pussy|slut\w*|whore\w*|nigg\w*|fag\w*|retard\w*|porn\w*)\b/i;
+export const hasProfanity = (text) => PROFANITY.test(text);
+
+// A review is worth quoting when it says something about the film (a quality or a reaction), not just a joke.
+export function isSubstantive(text) {
+  const t = String(text).toLowerCase();
+  const themed = Object.values(THEMES).some((words) => has(t, words).length);
+  return themed || has(t, POSITIVE).length > 0 || has(t, NEGATIVE).length > 0;
+}

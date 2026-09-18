@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { MOODS } from './agent/constraints.js';
 
 export class HttpError extends Error {
   constructor(status, message) {
@@ -13,19 +14,49 @@ export const STATUSES = ['watched', 'watchlist'];
 export const VERDICTS = ['liked', 'meh', 'disliked'];
 export const FEEDBACK_KINDS = ['thumbs-up', 'thumbs-down', 'not-my-taste', 'wrong-mood', 'too-long', 'seen-it', 'other'];
 export const SETTINGS = ['in-person', 'online'];
+// friends: people who follow you can learn from your history. private: nobody can.
+export const SHARING = ['friends', 'private'];
+// Broad, simulated area labels only. There is no live geolocation and nothing finer than these.
+export const AREAS = ['Downtown', 'University District', 'Northside', 'Eastside', 'Westside', 'Harborfront'];
+// Permanent taste calibration. "not-watched" is neutral: it is not a rating and not a watch.
+export const TASTE_ACTIONS = ['love', 'like', 'dislike', 'not-watched'];
+// Tonight's shared-deck reactions. They never touch the permanent taste profile.
+export const ROOM_SWIPE_ACTIONS = ['love', 'like', 'dislike', 'skip', 'seen'];
+export const ROOM_STATUSES = ['collecting', 'analyzing', 'needs-tiebreaker', 'complete'];
+export const ROOM_MAX_MEMBERS = 8;
+export const MAX_HARD_VETOES = 12;
 
 const DEFAULT_PREFS = { genres: [], avoidGenres: [], hardNoTerms: [], avoidFlags: [], mood: null, maxRuntime: null, minYear: null, novelty: 0.3 };
 const ROOM_LETTERS = 'BCDFGHJKLMNPQRSTVWXZ';
 
-const fresh = () => ({ seq: 1, users: {}, entries: [], feedback: [], rooms: {}, events: [], runs: {} });
+const fresh = () => ({ seq: 1, users: {}, entries: [], feedback: [], follows: [], tasteSwipes: [], rooms: {}, events: [], runs: {} });
 
-// Consent model: a person's history is visible to others only inside a screening room they joined.
+const newMember = (userId) => ({ userId, mood: null, maxRuntime: null, hardVetoes: [], ready: false, swipes: {}, joinedAt: new Date().toISOString() });
+
+// Consent model: a person's history is visible only to people who follow them AND only while their sharing is "friends".
+// Joining a screening room is a separate, explicit opt-in that lets the group agent weigh that person's taste for that room.
 export class Store {
   constructor({ file = null } = {}) {
     this.file = file;
     this.state = fresh();
     if (file && fs.existsSync(file)) {
       try { this.state = { ...fresh(), ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch { this.state = fresh(); }
+      this.migrate();
+    }
+  }
+
+  // State files written before follows/sharing/room members existed still load.
+  migrate() {
+    for (const u of Object.values(this.state.users)) {
+      u.sharing = SHARING.includes(u.sharing) ? u.sharing : 'friends';
+      u.area ??= null;
+    }
+    for (const r of Object.values(this.state.rooms)) {
+      r.members ??= Object.fromEntries((r.memberIds ?? []).map((id) => [id, newMember(id)]));
+      r.status ??= 'collecting';
+      r.deck ??= [];
+      r.tiebreaker ??= null;
+      r.result ??= null;
     }
   }
 
@@ -39,9 +70,11 @@ export class Store {
   nextId(prefix) { return `${prefix}${this.state.seq++}`; }
 
   // ---- people (an unguessable id doubles as the session cookie) ----
-  createUser({ name = '', prefs = {}, demo = false, managedBy = null } = {}) {
+  createUser({ name = '', prefs = {}, sharing = 'friends', area = null, demo = false, simulated = false, managedBy = null } = {}) {
+    if (!SHARING.includes(sharing)) throw new HttpError(400, `sharing must be one of ${SHARING.join(', ')}`);
+    if (area != null && !AREAS.includes(area)) throw new HttpError(400, `area must be one of ${AREAS.join(', ')}`);
     const id = `u_${randomBytes(9).toString('base64url')}`;
-    this.state.users[id] = { id, name: String(name).trim().slice(0, 40) || 'Guest', prefs: { ...DEFAULT_PREFS, ...prefs }, demo, managedBy, createdAt: new Date().toISOString() };
+    this.state.users[id] = { id, name: String(name).trim().slice(0, 40) || 'Guest', prefs: { ...DEFAULT_PREFS, ...prefs }, sharing, area, demo, simulated, managedBy, createdAt: new Date().toISOString() };
     this.save();
     return this.state.users[id];
   }
@@ -56,9 +89,13 @@ export class Store {
 
   listUsers() { return Object.values(this.state.users); }
 
-  updateUser(id, { name, prefs }) {
+  updateUser(id, { name, prefs, sharing, area } = {}) {
     const u = this.getUser(id);
+    if (sharing !== undefined && !SHARING.includes(sharing)) throw new HttpError(400, `sharing must be one of ${SHARING.join(', ')}`);
+    if (area != null && !AREAS.includes(area)) throw new HttpError(400, `area must be one of ${AREAS.join(', ')}`);
     if (name !== undefined) u.name = String(name).trim().slice(0, 40) || u.name;
+    if (sharing !== undefined) u.sharing = sharing;
+    if (area !== undefined) u.area = area || null;
     if (prefs) {
       const p = { ...u.prefs };
       const list = (v) => [...new Set((v ?? []).map((x) => String(x).trim()).filter(Boolean))];
@@ -80,19 +117,24 @@ export class Store {
   // ---- watch lists ----
   entriesFor(userId) { return this.state.entries.filter((e) => e.userId === userId); }
 
-  addEntry({ userId, movieId, status = 'watched', verdict = null }) {
+  addEntry({ userId, movieId, status = 'watched', verdict = null, reaction = null, source = null }) {
     this.getUser(userId);
     if (!STATUSES.includes(status)) throw new HttpError(400, `status must be one of ${STATUSES.join(', ')}`);
     if (verdict != null && !VERDICTS.includes(verdict)) throw new HttpError(400, `verdict must be one of ${VERDICTS.join(', ')}`);
-    if (status !== 'watched') verdict = null;
+    if (status !== 'watched') { verdict = null; reaction = null; }
     const existing = this.state.entries.find((e) => e.userId === userId && e.movieId === movieId);
     if (existing) {
       existing.status = status;
       existing.verdict = verdict;
+      // A later manual edit replaces how the entry got here, so an old taste swipe cannot undo it.
+      if (reaction) existing.reaction = reaction; else delete existing.reaction;
+      if (source) existing.source = source; else delete existing.source;
       this.save();
       return { entry: existing, created: false };
     }
     const entry = { userId, movieId, status, verdict, addedAt: new Date().toISOString() };
+    if (reaction) entry.reaction = reaction;
+    if (source) entry.source = source;
     this.state.entries.push(entry);
     this.save();
     return { entry, created: true };

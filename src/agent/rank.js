@@ -2,9 +2,12 @@ import { buildProfile, summarizeProfile } from './profile.js';
 import { similarity, sharedTraits, mostSimilar } from './similarity.js';
 import { crowdScore, ratingConfidence, votesOf } from './ratings.js';
 import { publicMovie } from '../data/catalog.js';
-import { hardNoReason, contentCautions } from './constraints.js';
+import { hardNoReason, contentCautions, notAFeature } from './constraints.js';
 
 const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+
+// A rating from few people should pull less than one from millions: shrink toward neutral as evidence thins.
+export const evidenceTrust = (votes) => clamp((Math.log10(Math.max(votes, 1)) - 1.5) / 4, 0.2, 1);
 const mean = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 const evidenceVotes = (m) => m.rating.sources.reduce((s, r) => s + (votesOf(r) ?? 0), 0);
 const realVotes = (m) => m.rating.sources.reduce((s, r) => s + (r.votes ?? 0), 0);
@@ -58,6 +61,7 @@ export function buildFriendContext({ viewerId, store, catalog }) {
 export function filterReason(movie, user, profile) {
   if (profile.seenIds.has(movie.id)) return 'already-seen';
   if (profile.rejectedIds.has(movie.id)) return 'rejected-by-you';
+  if (notAFeature(movie)) return 'not-a-feature';
   const no = hardNoReason(movie, user.prefs);
   if (no) return no.code;
   if (user.prefs.maxRuntime && movie.runtime && movie.runtime > user.prefs.maxRuntime) return 'too-long';
@@ -148,7 +152,7 @@ export function scoreMovie(movie, ctx) {
   const { user, profile, friends = [] } = ctx;
   const w = ctx.weights ?? weightsFor(profile);
   const taste = tasteComponent(movie, profile);
-  const crowd = crowdScore(movie.rating.consensus);
+  const crowd = 0.5 + (crowdScore(movie.rating.consensus) - 0.5) * evidenceTrust(evidenceVotes(movie));
   const nov = noveltyComponent(movie, profile);
   const novelty = nov.raw * profile.novelty;
   const fr = friendComponent(movie, friends);
@@ -177,8 +181,8 @@ export function scoreMovie(movie, ctx) {
   if (profile.mood) {
     const fits = movie.genres.filter((g) => profile.mood.boost.includes(g));
     const clashes = movie.genres.filter((g) => profile.mood.dampen.includes(g));
-    if (fits.length) reasons.push({ signal: 'mood', impact: 0.05 * fits.length, text: `Fits your mood (${profile.mood.label}): ${fits.join(', ')}` });
-    if (clashes.length && !fits.length) tradeoffs.push(`Runs against your mood (${profile.mood.label}): ${clashes.join(', ')}`);
+    if (fits.length) reasons.push({ signal: 'mood', impact: 0.05 * fits.length, text: `Fits your mood (${profile.mood.short}): ${fits.join(', ')}` });
+    if (clashes.length && !fits.length) tradeoffs.push(`Runs against your mood (${profile.mood.short}): ${clashes.join(', ')}`);
   }
 
   if (movie.rating.consensus != null) {

@@ -14,11 +14,13 @@ export function parseLetterboxd(html) {
   }
   const runtime = /(\d{1,3})(?:&nbsp;| |\s)+mins/.exec(html)?.[1];
   const year = /<title>[^<]*\((\d{4})\)/.exec(html)?.[1];
+  const imdbId = /imdb\.com\/title\/(tt\d+)/.exec(html)?.[1] ?? null;
   return {
     ratingValue: agg ? Number(agg.ratingValue) : null,
     ratingCount: agg ? Number(agg.ratingCount) : null,
     runtime: runtime ? Number(runtime) : null,
     year: year ? Number(year) : null,
+    imdbId,
   };
 }
 
@@ -34,8 +36,23 @@ export async function fetchLetterboxd(movie, { fetcher }) {
     status: 'ok',
     url: movie.url,
     runtime: p.runtime,
+    imdbId: p.imdbId,
     ratings: p.ratingValue ? [{ source: 'letterboxd', value: p.ratingValue * 2, votes: p.ratingCount || null, kind: 'audience', basis: 'live page' }] : [],
   };
+}
+
+// ---------- Wikidata: IMDb id -> Rotten Tomatoes id (open API) ----------
+export async function fetchWikidataRtSlug(imdbId, { fetcher }) {
+  if (!/^tt\d+$/.test(imdbId ?? '')) return null;
+  const query = `SELECT ?rt WHERE { ?f wdt:P345 "${imdbId}" . ?f wdt:P1258 ?rt . }`;
+  const res = await fetcher.get(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { api: true, accept: 'application/sparql-results+json' });
+  if (res.status !== 'ok') return null;
+  try {
+    const values = JSON.parse(res.body).results.bindings.map((b) => b.rt.value);
+    return values.find((v) => v.startsWith('m/'))?.slice(2) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Rotten Tomatoes movie page ----------
@@ -78,34 +95,48 @@ export function rtSlugs(title, year) {
   return [...new Set([base, year ? `${base}_${year}` : null].filter(Boolean))];
 }
 
-export async function fetchRottenTomatoes(movie, { fetcher }) {
+const titleMatches = (pageTitle, movieTitle) => {
+  const a = normTitle((pageTitle ?? '').replace(/\s*\(\d{4}\)\s*$/, ''));
+  const b = normTitle(movieTitle);
+  return a === b || (b.length >= 5 && a.includes(b)) || (a.length >= 5 && b.includes(a));
+};
+
+// Slugs from Wikidata are authoritative (matched by IMDb id). Guessed slugs must pass a title and year check,
+// because the same slug can belong to a different film.
+export async function fetchRottenTomatoes(movie, { fetcher, hints = {} }) {
+  const candidates = [];
+  const fromWikidata = await fetchWikidataRtSlug(hints.imdbId, { fetcher });
+  if (fromWikidata) candidates.push({ slug: fromWikidata, trusted: true });
+  for (const slug of rtSlugs(movie.title, movie.year)) if (slug !== fromWikidata) candidates.push({ slug, trusted: false });
+
   const tried = [];
   let noScore = null;
-  for (const slug of rtSlugs(movie.title, movie.year)) {
+  for (const { slug, trusted } of candidates) {
     const url = `https://www.rottentomatoes.com/m/${slug}`;
     const res = await fetcher.get(url);
     tried.push(slug);
     if (res.status === 'blocked' || (res.status === 'error' && !res.http)) return { source: 'rottentomatoes', status: res.status, reason: res.reason, url };
     if (res.status !== 'ok') continue;
     const p = parseRottenTomatoes(res.body);
-    // A slug can belong to a different film with the same or a similar name, so the title and year must both check out.
-    const pageTitle = normTitle((p.title ?? '').replace(/\s*\(\d{4}\)\s*$/, ''));
-    if (pageTitle !== normTitle(movie.title)) continue;
+    if (!trusted) {
+      if (!titleMatches(p.title, movie.title)) continue;
+      if (movie.year && !p.year) continue;
+    }
     if (p.year && movie.year && Math.abs(p.year - movie.year) > 1) continue;
     if (!p.critics && !p.audience) { noScore = { source: 'rottentomatoes', status: 'no-score', reason: 'page has no Tomatometer or Popcornmeter yet', url }; continue; }
     const ratings = [];
     if (p.critics) ratings.push({ source: 'rottentomatoes', value: p.critics.score / 10, votes: p.critics.count, kind: 'critic', basis: 'live page', detail: p.critics });
     if (p.audience) ratings.push({ source: 'rt-audience', value: p.audience.score / 10, votes: p.audience.count, kind: 'audience', basis: 'live page', detail: p.audience });
-    return { source: 'rottentomatoes', status: 'ok', url, ratings, critics: p.critics, audience: p.audience };
+    return { source: 'rottentomatoes', status: 'ok', url, slug, viaWikidata: trusted, ratings, critics: p.critics, audience: p.audience };
   }
   return noScore ?? { source: 'rottentomatoes', status: 'not-found', reason: `no matching page (${tried.join(', ')})` };
 }
 
 // ---------- OMDb (IMDb, Metacritic, RT critics, runtime) ----------
-export async function fetchOmdb(movie, { fetcher, env }) {
+export async function fetchOmdb(movie, { fetcher, env, hints = {} }) {
   const key = env.OMDB_API_KEY;
   if (!key) return { source: 'omdb', status: 'unavailable', reason: 'OMDB_API_KEY not set' };
-  const q = new URLSearchParams({ apikey: key, t: movie.title, ...(movie.year ? { y: String(movie.year) } : {}) });
+  const q = new URLSearchParams({ apikey: key, ...(hints.imdbId ? { i: hints.imdbId } : { t: movie.title, ...(movie.year ? { y: String(movie.year) } : {}) }) });
   const res = await fetcher.get(`https://www.omdbapi.com/?${q}`, { api: true });
   if (res.status !== 'ok') return { source: 'omdb', status: res.status, reason: res.reason };
   let d;

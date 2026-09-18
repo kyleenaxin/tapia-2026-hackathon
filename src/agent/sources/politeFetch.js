@@ -75,8 +75,8 @@ export function createPoliteFetcher({
     return run;
   };
 
-  const rawGet = async (url) => {
-    const res = await fetchImpl(url, { headers: { 'User-Agent': userAgent, Accept: 'text/html,text/plain,*/*;q=0.5' }, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
+  const rawGet = async (url, accept = 'text/html,text/plain,*/*;q=0.5') => {
+    const res = await fetchImpl(url, { headers: { 'User-Agent': userAgent, Accept: accept }, signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
     if (res.url && new URL(res.url).host !== new URL(url).host) return { http: res.status, offsite: true, body: '' };
     const buf = Buffer.from(await res.arrayBuffer());
     return { http: res.status, body: buf.subarray(0, maxBytes).toString('utf8') };
@@ -103,7 +103,7 @@ export function createPoliteFetcher({
   return {
     userAgent,
     // `api: true` is for documented APIs called with a key. They are still rate limited, but robots.txt governs crawlers, not API calls.
-    async get(url, { api = false } = {}) {
+    async get(url, { api = false, accept } = {}) {
       const u = new URL(url);
       if (!api) {
         const robots = await robotsFor(u.origin);
@@ -111,7 +111,7 @@ export function createPoliteFetcher({
         if (!robotsAllows(robots.groups, u.pathname + u.search)) return { status: 'blocked', reason: `${u.host} robots.txt disallows ${u.pathname}` };
       }
       try {
-        const r = await scheduled(u.host, () => rawGet(url));
+        const r = await scheduled(u.host, () => rawGet(url, accept));
         if (r.offsite) return { status: 'error', reason: 'redirected to a different site; not followed' };
         if (r.http === 404 || r.http === 410) return { status: 'not-found', http: r.http };
         if (r.http < 200 || r.http >= 300) return { status: 'error', http: r.http, reason: `HTTP ${r.http}` };

@@ -2,15 +2,15 @@
 // over synopsis, Letterboxd theme labels and review text (they can miss things, and the UI says so).
 
 export const MOODS = {
-  cozy: { label: 'Cozy and comforting', boost: ['Comedy', 'Family', 'Romance', 'Animation', 'Music'], dampen: ['Horror', 'War', 'Crime'] },
-  thrilled: { label: 'On the edge of my seat', boost: ['Thriller', 'Mystery', 'Crime', 'Action'], dampen: ['Family', 'Music'] },
-  laugh: { label: 'I want to laugh', boost: ['Comedy'], dampen: ['War', 'Horror', 'Drama'] },
-  mindbend: { label: 'Something mind-bending', boost: ['Science Fiction', 'Mystery', 'Thriller'], dampen: ['Family'] },
-  cry: { label: 'A good cry', boost: ['Drama', 'Romance', 'War', 'History'], dampen: ['Comedy', 'Action'] },
-  scared: { label: 'Scare me', boost: ['Horror', 'Thriller', 'Mystery'], dampen: ['Family', 'Music', 'Romance'] },
-  epic: { label: 'Something epic', boost: ['Adventure', 'Fantasy', 'History', 'War', 'Action', 'Science Fiction'], dampen: [] },
-  inspired: { label: 'Inspired', boost: ['Drama', 'History', 'Music', 'Documentary'], dampen: ['Horror'] },
-  surprise: { label: 'Surprise me', boost: [], dampen: [], novelty: 0.8 },
+  cozy: { label: 'Cozy and comforting', short: 'cozy', boost: ['Comedy', 'Family', 'Romance', 'Animation', 'Music'], dampen: ['Horror', 'War', 'Crime'] },
+  thrilled: { label: 'On the edge of my seat', short: 'thrilling', boost: ['Thriller', 'Mystery', 'Crime', 'Action'], dampen: ['Family', 'Music'] },
+  laugh: { label: 'I want to laugh', short: 'funny', boost: ['Comedy'], dampen: ['War', 'Horror', 'Drama'] },
+  mindbend: { label: 'Something mind-bending', short: 'mind-bending', boost: ['Science Fiction', 'Mystery', 'Thriller'], dampen: ['Family'] },
+  cry: { label: 'A good cry', short: 'a good cry', boost: ['Drama', 'Romance', 'War', 'History'], dampen: ['Comedy', 'Action'] },
+  scared: { label: 'Scare me', short: 'scary', boost: ['Horror', 'Thriller', 'Mystery'], dampen: ['Family', 'Music', 'Romance'] },
+  epic: { label: 'Something epic', short: 'epic', boost: ['Adventure', 'Fantasy', 'History', 'War', 'Action', 'Science Fiction'], dampen: [] },
+  inspired: { label: 'Inspired', short: 'inspiring', boost: ['Drama', 'History', 'Music', 'Documentary'], dampen: ['Horror'] },
+  surprise: { label: 'Surprise me', short: 'surprise me', boost: [], dampen: [], novelty: 0.8 },
 };
 
 export const CONTENT_FLAGS = {
@@ -63,4 +63,12 @@ export function contentCautions(movie, prefs) {
     if (hits.length === 1) out.push(`One ${hits[0].where} mentions "${CONTENT_FLAGS[flag].label.toLowerCase()}", which you asked to avoid. Worth a quick check.`);
   }
   return out;
+}
+
+// Letterboxd includes featurettes, TV specials and shorts. This app recommends feature films.
+const NON_FEATURE_TITLE = /\b(special look|behind the scenes|making of|featurette|sneak peek|deleted scenes?|bloopers?)\b/i;
+export function notAFeature(movie) {
+  if (NON_FEATURE_TITLE.test(movie.title)) return 'looks like a featurette or special, not a feature film';
+  if (movie.runtime && movie.runtime < 60) return `only ${movie.runtime} minutes, so it is a short rather than a feature`;
+  return null;
 }
